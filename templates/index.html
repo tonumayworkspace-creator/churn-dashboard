@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Churn Dashboard — Predict</title>
+
+    <!-- Bootstrap 5 for responsive grid + icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://rsms.me/inter/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* inline modal styles (small and matching theme) */
+      .confirm-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10050;
+      }
+      .confirm-modal {
+        width: 520px;
+        max-width: calc(100% - 32px);
+        background: white;
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 12px 40px rgba(2,6,23,0.18);
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      }
+      .confirm-modal h4 { margin:0 0 8px 0; font-size:1.05rem; }
+      .confirm-modal p { margin:0; color:var(--muted); font-size:0.95rem; }
+      .confirm-modal .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+      .confirm-btn { background:var(--brand); color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer; }
+      .cancel-btn { background:transparent; color:var(--brand); border:1px solid rgba(37,99,235,0.12); padding:8px 12px; border-radius:8px; cursor:pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- Header (shows username + logout if user is signed in; otherwise shows Sign in / Sign up) -->
+      <div class="header">
+        <div class="brand">
+          <div class="logo">CD</div>
+          <div>
+            <div class="h1">Churn Dashboard</div>
+            <div class="h2">Compact demo — quick prediction</div>
+          </div>
+        </div>
+
+        <div style="text-align:right">
+          {% if user %}
+            <div style="font-size:0.9rem; color:var(--muted)">Signed in as <strong>{{ user }}</strong></div>
+            <div style="margin-top:6px;"><a href="{{ url_for('logout') }}" class="btn btn-ghost">Log out</a></div>
+          {% else %}
+            <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+              <a href="{{ url_for('login', next=request.path) }}" class="btn btn-ghost">Sign in</a>
+              <a href="{{ url_for('signup') }}" class="btn btn-primary" style="padding:8px 12px;">Sign up</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- left: form -->
+        <div class="card">
+          <form method="POST" action="{{ url_for('predict') }}" id="predict-form" novalidate>
+            <div style="display:flex; gap:12px; margin-bottom:10px;">
+              <div style="flex:1">
+                <label class="compact">Tenure (months)</label>
+                <input id="tenure" type="number" name="tenure" min="0" max="200" value="12" />
+              </div>
+              <div style="width:130px">
+                <label class="compact">Monthly</label>
+                <input id="monthly_charges" type="number" name="monthly_charges" step="0.01" min="0" value="70" />
+              </div>
+              <div style="width:140px">
+                <label class="compact">Total</label>
+                <input id="total_charges" type="number" name="total_charges" step="0.01" min="0" value="1200" />
+              </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom:8px;">
+              <div class="form-col">
+                <label class="compact">Contract</label>
+                <select id="contract" name="contract">
+                  {% for c in contracts %}
+                  <option value="{{ c }}">{{ c }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="form-col">
+                <label class="compact">Internet</label>
+                <select id="internet_service" name="internet_service">
+                  {% for s in internet_services %}
+                  <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="form-col">
+                <label class="compact">Payment</label>
+                <select id="payment_method" name="payment_method">
+                  {% for p in payment_methods %}
+                  <option value="{{ p }}">{{ p }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <!-- NEW ROW: OnlineSecurity + TechSupport (compact) -->
+            <div style="display:flex; gap:12px; margin-top:6px;">
+              <div style="flex:1;">
+                <label class="compact">Online Security</label>
+                <select id="OnlineSecurity" name="OnlineSecurity">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No internet service">No internet service</option>
+                </select>
+              </div>
+              <div style="flex:1;">
+                <label class="compact">Tech Support</label>
+                <select id="TechSupport" name="TechSupport">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No internet service">No internet service</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- inline validation message containers -->
+            <div id="form-error" class="form-error" role="alert"></div>
+            <div id="form-warning" class="form-warning" role="status"></div>
+
+            <div class="helper">Tip: keep values consistent with dataset labels (e.g., "Fiber optic").</div>
+
+            <div class="actions">
+              <button id="predict-btn" type="submit" class="btn btn-primary">Predict <i class="fa-solid fa-arrow-right" style="margin-left:8px;"></i></button>
+              <button type="reset" class="btn btn-ghost">Reset</button>
+            </div>
+          </form>
+
+          <div class="footer">Quick local demo • Use realistic values for better results</div>
+        </div>
+
+        <!-- right: metrics + quick info -->
+        <div>
+          <div class="metrics">
+            <div class="metric">
+              <h3>Model Summary</h3>
+              <p>Logistic Regression trained on Telco dataset. Fast, interpretable, and compact — good baseline for production.</p>
+            </div>
+            <div class="metric">
+              <h3>How to use</h3>
+              <p>Enter customer features on the left, click <strong>Predict</strong>. Result appears on a compact result page with probability.</p>
+            </div>
+            <div class="metric">
+              <h3>Next steps</h3>
+              <p>Save scaler & apply in server, add SHAP explanations, deploy.</p>
+            </div>
+          </div>
+        </div>
+      </div> <!-- grid -->
+    </div>
+
+    <!-- Confirm modal markup (hidden by default) -->
+    <div id="confirm-modal-root" aria-hidden="true" style="display:none;">
+      <div class="confirm-modal-backdrop" id="confirm-backdrop">
+        <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <h4 id="confirm-title">Please confirm</h4>
+          <p id="confirm-message">Are you sure?</p>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button class="cancel-btn" id="confirm-cancel">Cancel</button>
+            <button class="confirm-btn" id="confirm-ok">Yes, continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- server-injected user -->
+    <script>window.CURRENT_USER = {{ user|tojson }};</script>
+
+    <!-- app JS (AJAX + overlay + validation + modal) -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

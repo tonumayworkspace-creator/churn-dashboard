@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Log in — Churn App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      .auth-shell { max-width:420px; margin:60px auto; padding:18px; }
+      .auth-card { padding:18px; border-radius:10px; background:white; box-shadow:0 8px 24px rgba(15,23,42,0.06); }
+      label{font-weight:600; font-size:0.9rem; color:#374151}
+      input{width:100%; padding:9px 10px; margin-top:6px; border-radius:8px; border:1px solid #e6e9ef}
+      .actions{margin-top:12px; display:flex; gap:10px;}
+      .btn-primary{background:var(--brand); color:white; padding:9px 12px; border-radius:8px; border:none}
+      .muted{color:var(--muted); font-size:0.9rem}
+      .flash { margin-bottom:10px; padding:8px 10px; border-radius:8px; }
+      .flash.success { background:#ecfdf5; color:#065f46; }
+      .flash.danger { background:#fff1f2; color:#7f1d1d; }
+    </style>
+  </head>
+  <body>
+    <div class="auth-shell">
+      <div class="auth-card">
+        <h2>Sign in</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for cat, msg in messages %}
+              <div class="flash {{ 'success' if cat=='success' else 'danger' }}">{{ msg }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}">
+          <label>Username</label>
+          <input name="username" required />
+
+          <label style="margin-top:8px">Password</label>
+          <input name="password" type="password" required />
+
+          <div class="actions">
+            <button class="btn-primary" type="submit">Log in</button>
+            <a href="{{ url_for('signup') }}" class="muted" style="align-self:center; margin-left:auto">Create account</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
